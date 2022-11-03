@@ -101,6 +101,32 @@ app.get('/orders', async (req, res) => {
         res.send(error.message)
     }
 })
+//api for deleting a order
+app.delete('/orders/:id', async (req, res) => {
+    id = req.params.id
+    try {
+        const query = { _id: ObjectId(id) }
+        const result = await ordersCollection.deleteOne(query)
+        res.send(result)
+    } catch (error) {
+        res.send(error.message)
+    }
+})
+//api for updating a order
+app.patch('/orders/:id', async (req, res) => {
+    const id = req.params.id
+    const status = req.body.status
+    try {
+        const query = { _id: ObjectId(id) }
+        const updateDoc = {
+            $set: { status: status }
+        }
+        const result = await ordersCollection.updateOne(query, updateDoc)
+        res.send(result)
+    } catch (error) {
+        res.send(error.message)
+    }
+})
 
 app.listen(port, () => {
     console.log(`This port is running in ${port}`);
