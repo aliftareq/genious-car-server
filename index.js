@@ -1,6 +1,7 @@
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 const express = require('express')
 const cors = require('cors')
+const jwt = require('jsonwebtoken');
 require('colors');
 require('dotenv').config()
 
@@ -27,6 +28,23 @@ async function run() {
 }
 run().catch(err => console.log(err))
 
+//common function for using in routes
+function varifyJWT(req, res, next) {
+    const authHeader = req.headers.authorization
+    if (!authHeader) {
+        return res.status(401).send({ message: 'unauthorized Access' })
+    }
+    const token = authHeader.split(' ')[1]
+    //varifying aceess token
+    jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, function (err, decoded) {
+        if (err) {
+            return res.status(403).send({ message: 'Invalid Token' })
+        }
+        req.decoded = decoded
+        next()
+    })
+}
+
 //here the collection
 const ServicesCollection = client.db('geniusCar').collection('services')
 const ordersCollection = client.db('geniusCar').collection('orders')
@@ -52,7 +70,7 @@ app.get('/services', async (req, res) => {
     catch (error) {
         res.send({
             success: false,
-            data: error.message
+            data: `inside from api ${error.message}`,
         })
     }
 })
@@ -74,7 +92,7 @@ app.get('/services/:id', async (req, res) => {
     }
 })
 //api for post orders data.
-app.post('/orders', async (req, res) => {
+app.post('/orders', varifyJWT, async (req, res) => {
     try {
         const order = req.body
         const result = await ordersCollection.insertOne(order)
@@ -85,8 +103,12 @@ app.post('/orders', async (req, res) => {
     }
 })
 //api for get orders data.
-app.get('/orders', async (req, res) => {
+app.get('/orders', varifyJWT, async (req, res) => {
     try {
+        const decoded = req.decoded
+        if (decoded.email !== req.query.email) {
+            return res.status(403).send({ message: 'unauthorized Access!!!' })
+        }
         let query = {}
         if (req.query.email) {
             query = {
@@ -102,7 +124,7 @@ app.get('/orders', async (req, res) => {
     }
 })
 //api for deleting a order
-app.delete('/orders/:id', async (req, res) => {
+app.delete('/orders/:id', varifyJWT, async (req, res) => {
     id = req.params.id
     try {
         const query = { _id: ObjectId(id) }
@@ -113,7 +135,7 @@ app.delete('/orders/:id', async (req, res) => {
     }
 })
 //api for updating a order
-app.patch('/orders/:id', async (req, res) => {
+app.patch('/orders/:id', varifyJWT, async (req, res) => {
     const id = req.params.id
     const status = req.body.status
     try {
@@ -124,6 +146,18 @@ app.patch('/orders/:id', async (req, res) => {
         const result = await ordersCollection.updateOne(query, updateDoc)
         res.send(result)
     } catch (error) {
+        res.send(error.message)
+    }
+})
+//api for JWT 
+app.post('/jwt', async (req, res) => {
+    try {
+        const user = req.body
+        console.log(user);
+        const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, { expiresIn: '1h' })
+        res.send({ token })
+    }
+    catch (error) {
         res.send(error.message)
     }
 })
